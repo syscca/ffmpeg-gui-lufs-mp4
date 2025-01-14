@@ -98,8 +98,9 @@ class LUFSNormalizer(QWidget):
         audio_layout.addWidget(self.sample_rate)
         layout.addLayout(audio_layout)
 
-        # 启用Intel QSV硬件加速
+        # 启用Intel QSV硬件加速（默认启用）
         self.hw_accel = QCheckBox('启用 Intel QSV 硬件加速')
+        self.hw_accel.setChecked(True)  # 默认启用硬件加速
         layout.addWidget(self.hw_accel)
 
         # 处理音频（视频无损）按钮
@@ -210,7 +211,7 @@ class LUFSNormalizer(QWidget):
         sample_rate = self.sample_rate.text()
 
         # 构建 FFmpeg 命令
-        ffmpeg_cmd = ['ffmpeg']
+        ffmpeg_cmd = ['ffmpeg', '-y']  # 添加 -y 参数，强制覆盖输出文件
 
         # 如果启用硬件加速
         if self.hw_accel.isChecked():
@@ -223,9 +224,22 @@ class LUFSNormalizer(QWidget):
         # 输入文件
         ffmpeg_cmd.extend(['-i', input_file])
 
+        # 构建 loudnorm 滤镜参数
+        loudnorm_filter = f'loudnorm=I={I}:TP={TP}:LRA={LRA}'
+        if measured_I:
+            loudnorm_filter += f':measured_I={measured_I}'
+        if measured_TP:
+            loudnorm_filter += f':measured_TP={measured_TP}'
+        if measured_LRA:
+            loudnorm_filter += f':measured_LRA={measured_LRA}'
+        if measured_thresh:
+            loudnorm_filter += f':measured_thresh={measured_thresh}'
+        if offset:
+            loudnorm_filter += f':offset={offset}'
+
         # 音频处理参数
         ffmpeg_cmd.extend([
-            '-af', f'loudnorm=I={I}:TP={TP}:LRA={LRA}:measured_I={measured_I}:measured_TP={measured_TP}:measured_LRA={measured_LRA}:measured_thresh={measured_thresh}:offset={offset}',
+            '-af', loudnorm_filter,
             '-b:a', bitrate,
             '-ar', sample_rate,
             '-ac', '2',  # 立体声
